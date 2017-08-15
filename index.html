@@ -32,22 +32,6 @@
 			}
 		}
 
-		var scene = new THREE.Scene();
-		var camera = new THREE.PerspectiveCamera(
-			75,
-			window.innerWidth / window.innerHeight,
-			0.1,
-			2000
-		);
-		camera.position.set(0, 2000, 300);
-		camera.rotation.z -= Math.PI / 2;
-		camera.rotation.y -= Math.PI / 3;
-
-		var renderer = new THREE.WebGLRenderer();
-		renderer.autoClearColor = 0x2c3e50;
-		renderer.autoClear = true;
-		renderer.setSize(window.innerWidth, window.innerHeight);
-		document.body.appendChild(renderer.domElement);
 
 		function createArray(sizeY, sizeX) {
 			var array = new Array(sizeY);
@@ -60,15 +44,18 @@
 		noise.seed(Math.random());
 
 		var xOffStart = 0;
-		function generateGrid(geometry) {
+		var array;
+		function generateGrid() {
+			var geometry = {};
+			geometry.vertices = [];
 			var w = 2000;
 			var h = 4000;
 			var off = 50;
 			var sizeX = Math.floor(w / off);
 			var sizeY = Math.floor(h / off);
-			var array = createArray(sizeY, sizeX);
 			var xoff, yoff;
 
+			array = array ? array : createArray(sizeY, sizeX);
 			yoff = 0;
 			for (var y = 0; y < sizeY; y += 1) {
 				xoff = xOffStart;
@@ -83,7 +70,6 @@
 				yoff += 10;
 			}
 
-
 			function genTriangleArrayIndexes(y, x) {
 				return [
 					{'y': y, 'x': x},
@@ -95,26 +81,84 @@
 				];
 			}
 
+			var indexes, elem;
+
 			for (var y = 0; y < sizeY - 1; y += 1) {
 				for (var x = 0; x < sizeX - 1; x += 1) {
-					var indexes = genTriangleArrayIndexes(y, x);
+					indexes = genTriangleArrayIndexes(y, x);
 					indexes.map(function(index) {
-						var elem = array[index.y][index.x];
+						elem = array[index.y][index.x];
 						geometry.vertices.push(new THREE.Vector3(elem.x, elem.y, elem.z));
 					});
 				}
 			}
+			return arrayFromVertices(geometry.vertices);
 		}
 
+		var array_from_vert, float_array;
+
 		function arrayFromVertices(vertices) {
-			var array = new Array(vertices.length);
+			array_from_vert = array_from_vert === undefined ? [] : array_from_vert;
+
 			for (var i = 0; i < vertices.length; i++) {
-				array[i * 3] = vertices[i].x;
-				array[i * 3 + 1] = vertices[i].y;
-				array[i * 3 + 2] = vertices[i].z;
+				array_from_vert[i * 3] = vertices[i].x;
+				array_from_vert[i * 3 + 1] = vertices[i].y;
+				array_from_vert[i * 3 + 2] = vertices[i].z;
 			}
-			array = new Float32Array(array);
-			return (array);
+			if (float_array) {
+				for (var i = 0; i < array_from_vert.length; i++) {
+					float_array[i] = array_from_vert[i]
+				}
+			} else {
+				float_array = new Float32Array(array_from_vert);
+			}
+			return (float_array);
+		}
+
+		function genGeometry() {
+			geometry = new THREE.BufferGeometry();
+			geometry.addAttribute(
+				'position', new THREE.BufferAttribute(generateGrid(), 3)
+			);
+			return geometry;
+		}
+
+		var scene, camera, renderer, mesh, mesh_geometry, mesh_material, mesh_frame_material;
+
+		function init() {
+			scene = new THREE.Scene();
+			camera = new THREE.PerspectiveCamera(
+				75,
+				window.innerWidth / window.innerHeight,
+				0.1,
+				2000
+			);
+			camera.position.set(0, 2000, 300);
+			camera.rotation.z -= Math.PI / 2;
+			camera.rotation.y -= Math.PI / 3;
+
+			renderer = new THREE.WebGLRenderer();
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			document.body.appendChild(renderer.domElement);
+
+			mesh_geometry = genGeometry();
+			mesh_frame_material = new THREE.MeshBasicMaterial({
+				color: 0xff00ff,
+				wireframe: true
+			});
+			mesh_material = new THREE.MeshBasicMaterial({
+				color: 0xff00ff,
+				transparent: true,
+				opacity: 0.5,
+				side: THREE.DoubleSide,
+				depthTest: true,
+				depthWrite: true
+			});
+			mesh = new THREE.Mesh(mesh_geometry, mesh_material);
+			mesh_frame = new THREE.Mesh(mesh_geometry, mesh_frame_material);
+			scene.add(mesh);
+			scene.add(mesh_frame);
+			scene.fog = new THREE.Fog(0);
 		}
 
 		var fps = 50,
@@ -127,41 +171,20 @@
 			animate();
 		}
 
-		var mesh, array, mesh_geometry;
 		function animate() {
 			requestAnimationFrame(animate);
 			now = Date.now();
 			elapsed = now - old_time;
 			if (elapsed > 1000 / fps) {
-				geometry = new THREE.Geometry();
-				generateGrid(geometry);
-				mesh_geometry = new THREE.BufferGeometry();
-				array = arrayFromVertices(geometry.vertices);
-				mesh_geometry.addAttribute('position', new THREE.BufferAttribute(array, 3));
-				mesh_frame_material = new THREE.MeshBasicMaterial({
-					color: 0xff00ff,
-					wireframe: true
-				});
-				mesh_material = new THREE.MeshBasicMaterial({
-					color: 0xff00ff,
-					transparent: true,
-					opacity: 0.5,
-					side: THREE.DoubleSide,
-					depthTest: true,
-					depthWrite: true
-				});
-				scene = new THREE.Scene();
-					mesh = new THREE.Mesh(mesh_geometry, mesh_material);
-					mesh_frame = new THREE.Mesh(mesh_geometry, mesh_frame_material);
-				scene.add(mesh);
-				scene.add(mesh_frame);
-				scene.fog = new THREE.Fog(0);
-				renderer.render(scene, camera);
 				xOffStart += 2;
+				delete mesh.geometry;
+				delete mesh_frame.geometry;
+				mesh.geometry = mesh_frame.geometry = genGeometry();
+				renderer.render(scene, camera);
 				old_time = now - (elapsed % (1000 / fps));
 			}
 		}
-
+		init();
 		startTimer();
 		</script>
 	</body>

@@ -1,0 +1,106 @@
+function shuffle(array) {
+	var copy = [], n = array.length, i;
+	while (n) {
+		i = Math.floor(Math.random() * array.length);
+		if (i in array)	{
+			copy.push(array[i]);
+			delete array[i];
+			n--;
+		}
+	}
+	return copy;
+}
+
+function genSeq(n) {
+	var array = Array(n);
+	for (var i = 0; i < array.length; i++) {
+		array[i] = i;
+	}
+	return array;
+}
+
+class Grad {
+	constructor(x, y, z) {
+		this.x = x;
+		this.y = y;
+		this.z = z;
+	}
+	dot2(x, y) {
+		return this.x * x + this.y * y;
+	}
+}
+
+var grad3 = [
+	new Grad(1, 1, 0),
+	new Grad(-1, 1, 0),
+	new Grad(1, -1, 0),
+	new Grad(-1, 1, 0),
+	new Grad(1, 0, 1),
+	new Grad(-1, 0, 1),
+	new Grad(1, 0, -1),
+	new Grad(-1, 0, -1),
+	new Grad(0, 1, 1),
+	new Grad(0, -1, 1),
+	new Grad(0, 1, -1),
+	new Grad(0, -1, -1)
+];
+
+var p = shuffle(genSeq(256));
+var perm = new Array(512);
+var gradP = new Array(512);
+
+function genFromSeed(seed) {
+	if (seed > 0 && seed < 1) {
+		seed *= 65536;
+	}
+	seed = Math.floor(seed);
+	if (seed < 256) {
+		seed |= seed << 8;
+	}
+	var v;
+
+	for (var i = 0; i < 256; i++) {
+		if (i & 1) {
+			v = p[i] ^ (seed & 255);
+		} else {
+			v = p[i] ^ ((seed >> 8) & 255)
+		}
+
+		perm[i + 256] = v;
+		perm[i] = v;
+		gradP[i + 256] = grad3[v % 12];
+		gradP[i] = grad3[v % 12];
+	}
+}
+
+genFromSeed(Math.random());
+
+function lerp(a0, a1, w) {
+	return (1.0 - w) * a0, + w * a1;
+}
+
+function fade(t) {
+	return t * t * t * (t * (t * 6 - 15) + 10);
+}
+
+function perlin2(x, y) {
+	var X = Math.floor(x),
+			Y = Math.floor(y);
+	var n00, n01, n10, n11;
+	var u;
+
+	x = x - X;
+	y = y - Y;
+	X = X & 255;
+	Y = Y & 255;
+	n00 = gradP[X + perm[Y]].dot2(x, y);
+	n01 = gradP[X + perm[Y + 1]].dot2(x, y - 1);
+	n10 = gradP[X + 1 + perm[Y]].dot2(x - 1, y);
+	n11 = gradP[X + 1 + perm[Y + 1]].dot2(x - 1, y - 1);
+	u = fade(x);
+	return lerp(
+		lerp(n00, n10, u),
+		lerp(n01, n11, u),
+		fade(y)
+	);
+}
