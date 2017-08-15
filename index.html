@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>threejs test</title>
+		<style media="screen">
+			body {
+				margin: 0;
+				overflow: hidden;
+				background: #2c3e50;
+			}
+			canvas {
+				width: 100%;
+				height: 100%;
+				background: #2c3e50;
+			}
+		</style>
+	</head>
+	<body>
+		<script src="three.js"></script>
+		<script src="perlin.js"></script>
+		<script>
+		function random(from, to) {
+			return ((Math.random() * (to - from)) + from);
+		}
+
+		function map(num, a1, a2, b1, b2) {
+			if ((num >= a1 && num <= a2) || (num >= a2 && num <= a1)) {
+				return ((Math.abs(num - a1) / (Math.abs(a1 - a2))) * (b2 - b1)) + b1;
+			} else {
+				return b1;
+			}
+		}
+
+		var scene = new THREE.Scene();
+		var camera = new THREE.PerspectiveCamera(
+			75,
+			window.innerWidth / window.innerHeight,
+			0.1,
+			2000
+		);
+		camera.position.set(0, 2000, 300);
+		camera.rotation.z -= Math.PI / 2;
+		camera.rotation.y -= Math.PI / 3;
+
+		var renderer = new THREE.WebGLRenderer();
+		renderer.autoClearColor = 0x2c3e50;
+		renderer.autoClear = true;
+		renderer.setSize(window.innerWidth, window.innerHeight);
+		document.body.appendChild(renderer.domElement);
+
+		function createArray(sizeY, sizeX) {
+			var array = new Array(sizeY);
+			for (var i = 0; i < sizeY; i++) {
+				array[i] = new Array(sizeX);
+			}
+			return (array);
+		}
+
+		noise.seed(Math.random());
+
+		var xOffStart = 0;
+		function generateGrid(geometry) {
+			var w = 2000;
+			var h = 4000;
+			var off = 50;
+			var sizeX = Math.floor(w / off);
+			var sizeY = Math.floor(h / off);
+			var array = createArray(sizeY, sizeX);
+			var xoff, yoff;
+
+			yoff = 0;
+			for (var y = 0; y < sizeY; y += 1) {
+				xoff = xOffStart;
+				for (var x = 0; x < sizeX; x += 1) {
+					array[y][x] = {
+						'x': off * x,
+						'y': off * y,
+						'z': map(Math.abs(noise.perlin2(xoff/100, yoff/100)), 0, 0.5, 0, 200)
+					};
+					xoff += 10;
+				}
+				yoff += 10;
+			}
+
+
+			function genTriangleArrayIndexes(y, x) {
+				return [
+					{'y': y, 'x': x},
+					{'y': y + 1, 'x': x},
+					{'y': y, 'x': x + 1},
+					{'y': y, 'x': x + 1},
+					{'y': y + 1, 'x': x},
+					{'y': y + 1, 'x': x + 1}
+				];
+			}
+
+			for (var y = 0; y < sizeY - 1; y += 1) {
+				for (var x = 0; x < sizeX - 1; x += 1) {
+					var indexes = genTriangleArrayIndexes(y, x);
+					indexes.map(function(index) {
+						var elem = array[index.y][index.x];
+						geometry.vertices.push(new THREE.Vector3(elem.x, elem.y, elem.z));
+					});
+				}
+			}
+		}
+
+		function arrayFromVertices(vertices) {
+			var array = new Array(vertices.length);
+			for (var i = 0; i < vertices.length; i++) {
+				array[i * 3] = vertices[i].x;
+				array[i * 3 + 1] = vertices[i].y;
+				array[i * 3 + 2] = vertices[i].z;
+			}
+			array = new Float32Array(array);
+			return (array);
+		}
+
+		var fps = 50,
+				old_time,
+				now,
+				elapsed;
+
+		function startTimer() {
+			old_time = Date.now();
+			animate();
+		}
+
+		var mesh, array, mesh_geometry;
+		function animate() {
+			requestAnimationFrame(animate);
+			now = Date.now();
+			elapsed = now - old_time;
+			if (elapsed > 1000 / fps) {
+				geometry = new THREE.Geometry();
+				generateGrid(geometry);
+				mesh_geometry = new THREE.BufferGeometry();
+				array = arrayFromVertices(geometry.vertices);
+				mesh_geometry.addAttribute('position', new THREE.BufferAttribute(array, 3));
+				mesh_frame_material = new THREE.MeshBasicMaterial({
+					color: 0xff00ff,
+					wireframe: true
+				});
+				mesh_material = new THREE.MeshBasicMaterial({
+					color: 0xff00ff,
+					transparent: true,
+					opacity: 0.5,
+					side: THREE.DoubleSide,
+					depthTest: true,
+					depthWrite: true
+				});
+				scene = new THREE.Scene();
+					mesh = new THREE.Mesh(mesh_geometry, mesh_material);
+					mesh_frame = new THREE.Mesh(mesh_geometry, mesh_frame_material);
+				scene.add(mesh);
+				scene.add(mesh_frame);
+				scene.fog = new THREE.Fog(0);
+				renderer.render(scene, camera);
+				xOffStart += 2;
+				old_time = now - (elapsed % (1000 / fps));
+			}
+		}
+
+		startTimer();
+		</script>
+	</body>
+</html>
