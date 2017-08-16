@@ -28,10 +28,9 @@
 			if ((num >= a1 && num <= a2) || (num >= a2 && num <= a1)) {
 				return ((Math.abs(num - a1) / (Math.abs(a1 - a2))) * (b2 - b1)) + b1;
 			} else {
-				return b1;
+				return (num >= a1 && num >= a2) ? b2 : b1;
 			}
 		}
-
 
 		function createArray(sizeY, sizeX) {
 			var array = new Array(sizeY);
@@ -39,6 +38,15 @@
 				array[i] = new Array(sizeX);
 			}
 			return (array);
+		}
+
+		function randSeed(y, x) {
+			var state = y ^ x;
+			var m = 0x80000000;
+			var a = 1103516245;
+			var c = 13456;
+			var v = (a * state + c) % m;
+			return (map(v, 0, m, -10, 10));
 		}
 
 		noise.seed(Math.random());
@@ -50,7 +58,7 @@
 			geometry.vertices = [];
 			var w = 2000;
 			var h = 4000;
-			var off = 50;
+			var off = 30;
 			var sizeX = Math.floor(w / off);
 			var sizeY = Math.floor(h / off);
 			var xoff, yoff;
@@ -63,7 +71,7 @@
 					array[y][x] = {
 						'x': off * x,
 						'y': off * y,
-						'z': map(Math.abs(noise.perlin2(xoff/100, yoff/100)), 0, 0.5, 0, 200)
+						'z': map(Math.abs(noise.perlin2(xoff/100, yoff/100)), 0, 1, 0, 400) + randSeed(yoff, xoff)
 					};
 					xoff += 10;
 				}
@@ -86,10 +94,14 @@
 			for (var y = 0; y < sizeY - 1; y += 1) {
 				for (var x = 0; x < sizeX - 1; x += 1) {
 					indexes = genTriangleArrayIndexes(y, x);
-					indexes.map(function(index) {
-						elem = array[index.y][index.x];
+					for (var i = 0; i < indexes.length; i++) {
+						elem = array[indexes[i].y][indexes[i].x];
 						geometry.vertices.push(new THREE.Vector3(elem.x, elem.y, elem.z));
-					});
+					}
+					// indexes.map(function(index) {
+					// 	elem = array[index.y][index.x];
+					// 	geometry.vertices.push(new THREE.Vector3(elem.x, elem.y, elem.z));
+					// });
 				}
 			}
 			return arrayFromVertices(geometry.vertices);
@@ -123,9 +135,10 @@
 			return geometry;
 		}
 
-		var scene, camera, renderer, mesh, mesh_geometry, mesh_material, mesh_frame_material;
+		var scene, camera, renderer;
 
 		function init() {
+			var mesh, mesh_geometry, mesh_material, mesh_frame_material;
 			scene = new THREE.Scene();
 			camera = new THREE.PerspectiveCamera(
 				75,
@@ -172,14 +185,18 @@
 		}
 
 		function animate() {
+			var buffer_attr;
+
 			requestAnimationFrame(animate);
 			now = Date.now();
 			elapsed = now - old_time;
 			if (elapsed > 1000 / fps) {
 				xOffStart += 2;
-				delete mesh.geometry;
-				delete mesh_frame.geometry;
-				mesh.geometry = mesh_frame.geometry = genGeometry();
+				buffer_attr = genGeometry();
+				// mesh.geometry = buffer_attr;
+				// mesh_frame.geometry = buffer_attr;
+				scene.children[0].geometry = buffer_attr;
+				scene.children[1].geometry = buffer_attr;
 				renderer.render(scene, camera);
 				old_time = now - (elapsed % (1000 / fps));
 			}
