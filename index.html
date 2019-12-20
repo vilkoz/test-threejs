@@ -52,6 +52,7 @@
 		noise.seed(Math.random());
 
 		var xOffStart = 0;
+		// function generateGrid(geometry) {
 		function generateGrid() {
 			var geometry = {};
 			geometry.vertices = [];
@@ -70,7 +71,7 @@
 					array[y][x] = {
 						'x': off * x,
 						'y': off * y,
-						'z': map(Math.abs(noise.perlin2(xoff/100, yoff/100)), 0, 1, 0, 400)
+						'z': map(Math.abs(noise.perlin2(xoff/100, yoff/100)), 0, 1, 0, 400) + randSeed(yoff, xoff)
 					};
 					xoff += 10;
 				}
@@ -95,20 +96,39 @@
 					indexes = genTriangleArrayIndexes(y, x);
 					for (var i = 0; i < indexes.length; i++) {
 						elem = array[indexes[i].y][indexes[i].x];
+						// geometry.vertices.push(new THREE.Vector3(elem.x, elem.y, elem.z));
 						geometry.vertices.push(elem.x);
 						geometry.vertices.push(elem.y);
 						geometry.vertices.push(elem.z);
 					}
 				}
 			}
+			// return arrayFromVertices(geometry.vertices);
+			// return (new Float32Array(geometry.vertices));
 			return new Float32Array(geometry.vertices);
 		}
+
+
+		// function arrayFromVertices(vertices) {
+		// 	var array_from_vert = [],
+		// 			float_array;
+		//
+		// 	for (var i = 0; i < vertices.length; i++) {
+		// 		array_from_vert[i * 3] = vertices[i].x;
+		// 		array_from_vert[i * 3 + 1] = vertices[i].y;
+		// 		array_from_vert[i * 3 + 2] = vertices[i].z;
+		// 	}
+		// 	float_array = new Float32Array(array_from_vert);
+		// 	return (float_array);
+		// }
 
 		function genGeometry() {
 			var geometry = new THREE.BufferGeometry();
 			geometry.addAttribute(
 				'position', new THREE.BufferAttribute(generateGrid(), 3)
 			);
+			// var geometry = new THREE.Geometry();
+			// generateGrid(geometry);
 			return geometry;
 		}
 
